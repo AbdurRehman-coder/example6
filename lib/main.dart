@@ -1,3 +1,7 @@
+// Github Access Token: "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";
+
+
+
 import 'package:flutter/material.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -91,16 +95,15 @@ final filmStatusProvider = StateProvider<FavoriteStatus>((ref) => FavoriteStatus
 final allFilmsProvider = StateNotifierProvider<FilmNotifier, List<Film>>((ref) => FilmNotifier());
 
 // Favorite provider
-final favoriteFilmsProvider = Provider<List<Film>>((ref) {
+final favoriteFilmsProvider = Provider<Iterable<Film>>((ref) {
       final allFilmsPro = ref.watch(allFilmsProvider);
-     return allFilmsPro.where((film) => film.isFavorite).toList();
+     return allFilmsPro.where((film) => film.isFavorite);
 });
 
 // None Favorite provider
-final noneFavoriteFilmsProvider = Provider<List<Film>>((ref) {
-      final allFilmsPro = ref.watch(allFilmsProvider);
-     return allFilmsPro.where((film) => !film.isFavorite).toList();
-});
+final noneFavoriteFilmsProvider = Provider<Iterable<Film>>((ref) =>
+    ref.watch(allFilmsProvider).where((film) => !film.isFavorite),
+);
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -131,6 +134,83 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: Text('Home Page'),
       ),
+      body: Column(
+        children: [
+         const FilterWidget(),
+        Consumer(
+    builder: (BuildContext context, WidgetRef ref, Widget? child) {
+      final filter = ref.watch(filmStatusProvider);
+      switch(filter){
+        case FavoriteStatus.all:
+          return FilmList(provider: allFilmsProvider,);
+        case FavoriteStatus.favorite:
+          return FilmList(provider: favoriteFilmsProvider,);
+        case FavoriteStatus.notFavorite:
+          return FilmList(provider: noneFavoriteFilmsProvider);
+
+      }
+    },
+    ),
+        ],
+      ),
+    );
+  }
+}
+
+// Films Widget
+class FilmList extends ConsumerWidget {
+  final AlwaysAliveProviderBase<Iterable<Film>> provider;
+  const FilmList({super.key, required this.provider});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final films = ref.watch(provider);
+    return Expanded(
+        child: ListView.builder(
+          itemCount: films.length,
+            itemBuilder: (context, index){
+              final film = films.elementAt(index);
+              final favoriteIcon = film.isFavorite
+              ? const Icon(Icons.favorite)
+                  : const Icon(Icons.favorite_border);
+
+              return ListTile(
+                title: Text(film.title),
+                subtitle: Text(film.description),
+                trailing: IconButton(
+                  icon: favoriteIcon,
+                  onPressed: (){
+                    final isFavorite = !film.isFavorite;
+                    ref.read(allFilmsProvider.notifier).update(film, isFavorite);
+                  },
+                ),
+              );
+            }
+        ));
+  }
+}
+
+class FilterWidget extends StatelessWidget {
+  const FilterWidget({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, child){
+        return DropdownButton(
+          value: ref.watch(filmStatusProvider),
+            items: FavoriteStatus.values.map((fss) =>
+            DropdownMenuItem(
+              value: fss,
+              child: Text(fss.toString().split('.').last),
+            ),
+            ).toList(),
+            onChanged: (dynamic fs){
+            // final fooo = ref.read(filmStatusProvider.notifier);
+            ref.read(filmStatusProvider.notifier).state = fs!;
+            },
+        );
+      }
     );
   }
 }
